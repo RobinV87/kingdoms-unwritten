@@ -1,3 +1,4 @@
+import {GrainPetitions} from './GrainPetitions';
 import {useState} from 'react';
 import type {World} from './engine/world';
 import {beds, conditions, newCrown, setCrownShare, transferGold} from './engine/crown';
@@ -14,7 +15,7 @@ interface Props {
 const number = (value: number) => Math.floor(value).toLocaleString();
 
 export function RoyalCouncil({initialReport,world, govern, act, pauseMonthly, setPauseMonthly}: Props) {
-  const [section, setSection] = useState<'Realm' | 'Treasury' | 'Reports'>(initialReport?'Reports':'Realm');
+  const [section, setSection] = useState<'Realm' | 'Petitions' | 'Treasury' | 'Reports'>(initialReport?'Reports':'Realm');
   const [fundTown, setFundTown] = useState('s0');
   const [amount, setAmount] = useState(50);
   const [notice, setNotice] = useState('');
@@ -32,13 +33,14 @@ export function RoyalCouncil({initialReport,world, govern, act, pauseMonthly, se
     <div className="eyebrow">♛ &nbsp; THE KING’S COUNCIL</div>
     <h2>Kingdom of {world.name}</h2>
     <p className="subtitle">Your charge is to feed and shelter {number(people)} people.</p>
-    <nav aria-label="Council chambers">{(['Realm','Treasury','Reports'] as const).map(name =>
-      <button key={name} aria-pressed={section===name} onClick={()=>setSection(name)}>{name}</button>)}</nav>
+    <nav aria-label="Council chambers">{(['Realm','Petitions','Treasury','Reports'] as const).map(name =>
+      <button key={name} aria-pressed={section===name} onClick={()=>setSection(name)}>{name}{name==='Petitions' && towns.some(t=>t.petition) ? ' ('+towns.filter(t=>t.petition).length+')' : ''}</button>)}</nav>
     {section==='Realm' && <>
       <dl className="royal-figures">
         <div><dt>People</dt><dd>{number(people)}</dd></div><div><dt>Without shelter</dt><dd>{number(homeless)}</dd></div>
         <div><dt>Crown gold</dt><dd>{number(crown.gold)}g</dd></div><div><dt>Caravans</dt><dd>{world.caravans?.length??0}</dd></div>
       </dl>
+      {towns.some(t=>t.petition?.decision==='pending') && <button className="council-call" onClick={()=>setSection('Petitions')}>Hear grain petitions →</button>}
       <h3>Dispatches from your towns</h3>
       {towns.map(t=>({town:t, alerts:conditions(t)})).sort((a,b)=>Number(b.town.famine)-Number(a.town.famine)||b.alerts.length-a.alerts.length).map(({town:t,alerts})=>
         <button className="dispatch" key={t.id} onClick={()=>govern(t.id)}>
@@ -47,6 +49,7 @@ export function RoyalCouncil({initialReport,world, govern, act, pauseMonthly, se
           <em className={alerts.length?'urgent':''}>{alerts.join(' · ') || 'No urgent petitions'}</em>
         </button>)}
     </>}
+    {section==='Petitions' && <GrainPetitions world={world} act={act}/>}
     {section==='Treasury' && <>
       <h3>Royal treasury</h3><p className="royal-balance">{number(crown.gold)} gold</p>
       <label className="field">Crown share of town taxes<select value={crown.share} onChange={e=>act(w=>setCrownShare(w,Number(e.target.value)))}>
@@ -64,7 +67,7 @@ export function RoyalCouncil({initialReport,world, govern, act, pauseMonthly, se
       <p className="bodycopy">The next report arrives in {30-world.day%30} days, after towns collect taxes and pay wages.</p>
       {[...crown.reports].reverse().map(r=><article className="dispatch" key={r.day}><strong>Year {Math.ceil(r.day/360)} · Month {Math.floor(((r.day-1)%360)/30)+1}</strong>
         <p>{number(r.people)} residents · {r.homeless} unhoused · {r.hungryTowns} towns going hungry</p>
-        <small>Lowest stability {Math.round(r.lowestStability)}% · {r.taxes}g collected · {r.tribute}g to Crown</small></article>)}
+        <small>Lowest stability {Math.round(r.lowestStability)}% · {r.taxes}g collected · {r.tribute}g to Crown</small>{world.events.filter(e=>e.type==='relief_outcome' && e.day>r.day-30 && e.day<=r.day).map(e=><p key={e.id}>{e.description}</p>)}</article>)}
     </>}
   </section>;
 }

@@ -35,3 +35,9 @@ Select a settlement and choose Open town overview. Houses shelter four residents
 Start in the King’s Council. Select a town dispatch to govern its housing, taxes and markets. In Treasury, collect gold from a prosperous town, grant it to another or set a share of future tax receipts for the Crown. The royal treasury starts empty in both new and existing worlds. Reports keep the last twelve monthly accounts.
 
 Worlds open paused. At 1× a day takes three seconds. Play pauses at each monthly council by default. Switch this off in Reports for uninterrupted play, or use the day and month buttons to step forward.
+
+## Grain relief and granaries
+
+Open Council → Petitions when a town faces hunger or has less than ten days of grain at its latest daily deficit. Compare available donors, cargo, prices and routes. Fund a caravan from the Crown treasury, requisition a donor’s reserve at a cost of three stability, or let merchants take the order. The king can order reduced rations in the receiving town while a royal shipment travels. Consumption falls by 20% during transit and stability falls by an additional 0.06 per day. The Chronicle records the decision and outcome. Reports include closed cases in the month of resolution.
+
+Open a town overview to commission one granary. Construction takes 30 days, 80 timber, 50 stone and 100 town gold in wages. The finished building adds space for 6,000 grain. The town fills it with its harvest and deliveries.

@@ -32,3 +32,30 @@ test('normal play advances one day in three seconds and stops for council', asyn
   await page.getByRole('button',{name:/Monthly report ready/}).click();
   await expect(page.getByText('Year 1 · Month 1')).toBeVisible();
 });
+
+import {grainCrisis} from './grain-fixture';
+test('hear a grain petition, dispatch relief and commission a granary', async ({page})=>{
+  const {world}=grainCrisis();
+  await page.goto('/');
+  await page.getByRole('button',{name:'WORLDS'}).click();
+  await page.locator('input[type=file]').evaluate((input: HTMLInputElement, save) => {
+    const files = new DataTransfer();
+    files.items.add(new File([save],'winter.json',{type:'application/json'}));
+    input.files = files.files;
+    input.dispatchEvent(new Event('change',{bubbles:true}));
+  },JSON.stringify({name:'Winter',world}));
+  await page.getByRole('button',{name:/Hear grain petitions/}).click();
+  await page.getByLabel('Supply town').selectOption('s1');
+  await page.getByLabel('Reduce rations during transit').check();
+  await page.getByRole('button',{name:/Buy shipment/}).click();
+  await expect(page.getByText(/500 grain due in 4 days/)).toBeVisible();
+  await page.getByRole('button',{name:'Realm',exact:true}).click();
+  await page.locator('.council').getByRole('button',{name:/Dunmere/}).click();
+  await page.getByRole('button',{name:'Commission granary'}).click();
+  await expect(page.getByText('Under construction · 30 days remaining')).toBeVisible();
+  await page.getByRole('button',{name:'Close town overview'}).click();
+  await page.getByRole('button',{name:'+30d'}).click();
+  await page.getByRole('button',{name:'COUNCIL',exact:true}).click();
+  await page.getByRole('button',{name:'Reports',exact:true}).click();
+  await expect(page.locator('.council').getByText(/Alderwick: grain arrived/)).toBeVisible();
+});

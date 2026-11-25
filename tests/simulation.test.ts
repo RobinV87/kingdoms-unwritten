@@ -61,3 +61,68 @@ it('accumulates fractional monthly growth into residents who need homes', () => 
   }
   expect(housing(town).homeless).toBeGreaterThan(0);
 });
+
+import {answerPetition, buildGranary, foodCapacity, reliefOffers} from '../src/engine/relief';
+import {grainCrisis} from './grain-fixture';
+
+it('reserves relief payment and grain once, then records the delivered outcome after a reload',()=>{
+  const {world,buyer,donor} = grainCrisis();
+  const quote = reliefOffers(world,buyer).find(o=>o.donor.id===donor.id)!;
+  const stock = donor.stock.food, treasury = donor.treasury!;
+  expect(buyer.petition?.decision).toBe('pending');
+  expect(quote.duration).toBe(4);
+  expect(answerPetition(world,buyer.id,'purchase',donor.id,true)).toBe(true);
+  expect(answerPetition(world,buyer.id,'purchase',donor.id)).toBe(false);
+  expect(world.crown!.gold).toBe(2000-quote.gold);
+  expect(donor.stock.food).toBe(stock-quote.amount);
+  expect(donor.treasury).toBe(treasury);
+  expect(buyer.stock.food).toBe(0);
+  const resumed = parseSave(JSON.stringify({name:'Road to Alderwick',world})).world;
+  advance(resumed,quote.duration);
+  advance(world,quote.duration);
+  expect(resumed).toEqual(world);
+  expect(donor.treasury).toBe(treasury+quote.gold);
+  expect(buyer.petition).toBeUndefined();
+  expect(world.events.filter(e=>e.type==='relief_outcome' && e.settlementId===buyer.id)).toHaveLength(1);
+  expect(world.events.at(-1)?.changes.spent).toBe(quote.gold);
+});
+
+it('respects reachability and payment, and charges the donor for a requisition',()=>{
+  const {world,buyer,donor} = grainCrisis();
+  world.crown!.gold = 0;
+  expect(answerPetition(world,buyer.id,'purchase',donor.id)).toBe(false);
+  world.tiles.forEach(t=>{if(t.x===14)t.terrain='water'});
+  expect(answerPetition(world,buyer.id,'requisition',donor.id)).toBe(false);
+  world.tiles[10*64+14].terrain='plains';
+  const stability=donor.stability;
+  expect(answerPetition(world,buyer.id,'requisition',donor.id)).toBe(true);
+  expect(donor.stability).toBe(stability-3);
+});
+
+it('leaves a petition with the market until the stores recover',()=>{
+  const {world,buyer} = grainCrisis();
+  expect(answerPetition(world,buyer.id,'market')).toBe(true);
+  advance(world,1);
+  expect(buyer.petition?.decision).toBe('market');
+  buyer.stock.food = buyer.population*50;
+  advance(world,1);
+  expect(buyer.petition).toBeUndefined();
+  expect(world.events.at(-1)?.changes.spent).toBe(0);
+});
+
+it('pays for construction once and releases storage on the thirtieth day',()=>{
+  const {world,donor}=grainCrisis();
+  const stock={...donor.stock}, gold=donor.treasury!;
+  expect(buildGranary(world,donor)).toBe(true);
+  expect(buildGranary(world,donor)).toBe(false);
+  expect(donor.treasury).toBe(gold-100);
+  expect(donor.stock.stone).toBe(stock.stone-50);
+  expect(donor.stock.timber).toBe(stock.timber-80);
+  advance(world,29);
+  expect(foodCapacity(donor)).toBe(donor.population*60);
+  expect(typeof donor.granary).toBe('number');
+  advance(world,1);
+  expect(donor.granary).toBe('built');
+  expect(foodCapacity(donor)).toBe(donor.population*60+6000);
+  expect(validateWorld(world)).toBe(true);
+});
