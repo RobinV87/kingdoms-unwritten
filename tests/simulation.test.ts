@@ -17,3 +17,47 @@ describe('town governance',()=>{
  it('builds housing with resources and reduces homelessness',()=>{const w=createWorld(6),s=w.settlements[0];s.houses=0;s.stock.timber=30;s.stock.stone=15;s.treasury=25;const homeless=housing(s).homeless;expect(buildHouse(w,s.id)).toBe(true);expect(housing(s).homeless).toBe(homeless-4);expect(s.stock.timber).toBe(0);expect(s.stock.stone).toBe(0);expect(s.treasury).toBe(0);expect(buildHouse(w,s.id)).toBe(false)});
  it('changes trade asking prices and validates policy saves',()=>{const w=createWorld(8),s=w.settlements[0],base=price(s,'iron');expect(setPricePolicy(w,s.id,'iron',150)).toBe(true);expect(price(s,'iron')).toBeCloseTo(base*1.5,1);expect(setTax(w,s.id,31)).toBe(false);expect(validateWorld(w)).toBe(true);const loaded=parseSave(JSON.stringify({name:'test',world:w})).world;expect(loaded.settlements[0].pricePolicies?.iron).toBe(150);loaded.settlements[0].taxRate=-1;expect(validateWorld(loaded)).toBe(false)});
 });
+
+import {setCrownShare, transferGold} from '../src/engine/crown';
+
+it('moves existing gold between town and Crown and resumes the same reign', () => {
+  const world = createWorld(38);
+  const town = world.settlements[0];
+  const gold = town.treasury!;
+  expect(transferGold(world, town.id, 'grant', 10)).toBe(false);
+  expect(transferGold(world, town.id, 'collect', 50)).toBe(true);
+  expect(transferGold(world, town.id, 'grant', 10)).toBe(true);
+  expect(town.treasury).toBe(gold - 40);
+  expect(world.crown?.gold).toBe(40);
+
+  setCrownShare(world, 25);
+  const control = structuredClone(world);
+  setCrownShare(control, 0);
+  advance(world, 30);
+  advance(control, 30);
+  const report = world.crown!.reports[0];
+  expect(report.tribute).toBeGreaterThan(0);
+  expect(world.crown!.gold).toBe(40 + report.tribute);
+  const localTotal = (w: typeof world) => w.settlements.reduce((sum,t) => sum + t.treasury!, 0);
+  expect(localTotal(control) - localTotal(world)).toBe(report.tribute);
+  const loaded = parseSave(JSON.stringify({name:'Reign', world})).world;
+  advance(world, 60);
+  advance(loaded, 60);
+  expect(loaded).toEqual(world);
+});
+
+it('accumulates fractional monthly growth into residents who need homes', () => {
+  const w = createWorld(23);
+  for (const tile of w.tiles) tile.fertility = 1;
+  const town = w.settlements[0];
+  town.population = 100;
+  town.houses = 25;
+  town.stability = 100;
+  town.taxRate = 0;
+  for (let i=0; i<18; i++) {
+    // Each census in this fixture sees a well-fed town in spring.
+    w.day = 29;
+    advance(w,1);
+  }
+  expect(housing(town).homeless).toBeGreaterThan(0);
+});
